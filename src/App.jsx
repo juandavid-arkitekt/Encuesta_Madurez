@@ -303,13 +303,17 @@ export default function App() {
     setFormError('');
     setStarting(true);
 
-    const { data, error } = await supabase
+    // Generamos el id acá mismo, en el navegador, en vez de pedirle a Supabase que
+    // nos lo devuelva — así el insert nunca necesita "leer de vuelta" la fila, y
+    // no hace falta una política de SELECT pública (más privado, y evita el error
+    // de RLS que aparece al encadenar .select() después de insertar).
+    const newId = crypto.randomUUID();
+    const { error } = await supabase
       .from('respuestas')
-      .insert([{ nombre: nombre.trim(), empresa: empresa.trim(), email: email.trim() }])
-      .select();
+      .insert([{ id: newId, nombre: nombre.trim(), empresa: empresa.trim(), email: email.trim() }]);
 
-    if (!error && data && data[0]) {
-      responseIdRef.current = data[0].id;
+    if (!error) {
+      responseIdRef.current = newId;
     }
     setStarting(false);
     setStarted(true);
@@ -505,4 +509,4 @@ export default function App() {
       </div>
     </div>
   );
-}
+} 
