@@ -314,6 +314,8 @@ export default function App() {
 
     if (!error) {
       responseIdRef.current = newId;
+    } else {
+      console.error('Error al guardar el formulario inicial:', error);
     }
     setStarting(false);
     setStarted(true);
@@ -355,9 +357,20 @@ export default function App() {
     const payload = { overall_score: overallScore, overall_level: overallLevel.name, theme_scores: themeScoresPayload, answers };
 
     if (responseIdRef.current) {
-      supabase.from('respuestas').update(payload).eq('id', responseIdRef.current);
+      supabase
+        .from('respuestas')
+        .update(payload)
+        .eq('id', responseIdRef.current)
+        .then(({ error }) => {
+          if (error) console.error('Error al guardar los puntajes:', error);
+        });
     } else {
-      supabase.from('respuestas').insert([{ nombre, empresa, email, ...payload }]);
+      supabase
+        .from('respuestas')
+        .insert([{ nombre, empresa, email, ...payload }])
+        .then(({ error }) => {
+          if (error) console.error('Error al guardar la respuesta completa:', error);
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
@@ -509,4 +522,4 @@ export default function App() {
       </div>
     </div>
   );
-} 
+}
