@@ -309,7 +309,7 @@ export default function App() {
     // de RLS que aparece al encadenar .select() después de insertar).
     const newId = crypto.randomUUID();
     const { error } = await supabase
-      .from('respuestas')
+      .from('leads')
       .insert([{ id: newId, nombre: nombre.trim(), empresa: empresa.trim(), email: email.trim() }]);
 
     if (!error) {
@@ -346,9 +346,9 @@ export default function App() {
 
   const overallLevel = getLevel(overallScore || 1);
 
-  // Al llegar a resultados, completa (update) la fila que ya se creó al empezar la
-  // encuesta, agregando los puntajes y respuestas. Si por algún motivo no se guardó
-  // esa fila inicial (ej. sin conexión al arrancar), la crea ahora con todo incluido.
+  // Al llegar a resultados, guarda los puntajes como una fila NUEVA en la tabla
+  // "resultados", enlazada al lead por "lead_id" — nunca actualiza la fila del
+  // lead. Así todo el guardado, de principio a fin, son puros INSERT.
   useEffect(() => {
     if (step !== TOTAL_QUESTIONS || savedRef.current) return;
     savedRef.current = true;
@@ -356,22 +356,22 @@ export default function App() {
     const themeScoresPayload = Object.fromEntries(themeScores.map((t) => [t.id, t.score]));
     const payload = { overall_score: overallScore, overall_level: overallLevel.name, theme_scores: themeScoresPayload, answers };
 
-    if (responseIdRef.current) {
+    // Si por algún motivo no se guardó el lead al empezar (ej. sin conexión), lo
+    // creamos ahora también, para no perder el resultado.
+    const ensureLead = responseIdRef.current
+      ? Promise.resolve()
+      : supabase
+          .from('leads')
+          .insert([{ id: (responseIdRef.current = crypto.randomUUID()), nombre, empresa, email }]);
+
+    Promise.resolve(ensureLead).then(() => {
       supabase
-        .from('respuestas')
-        .update(payload)
-        .eq('id', responseIdRef.current)
+        .from('resultados')
+        .insert([{ lead_id: responseIdRef.current, ...payload }])
         .then(({ error }) => {
-          if (error) console.error('Error al guardar los puntajes:', error);
+          if (error) console.error('Error al guardar los resultados:', error);
         });
-    } else {
-      supabase
-        .from('respuestas')
-        .insert([{ nombre, empresa, email, ...payload }])
-        .then(({ error }) => {
-          if (error) console.error('Error al guardar la respuesta completa:', error);
-        });
-    }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
